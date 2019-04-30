@@ -685,7 +685,8 @@
         "I2C-NAV",
         "NAZA",
         "UBLOX7",
-        "MTK"
+        "MTK",
+        "MSP"
       ],
       "enum": "gpsProvider_e"
     }

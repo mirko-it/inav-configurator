@@ -14,6 +14,8 @@ var GUI_control = function () {
         'landing',
         'firmware_flasher',
         'mission_control',
+// TODO test
+'gps',
         'help'
     ];
     this.defaultAllowedTabsWhenConnected = [

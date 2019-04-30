@@ -1321,6 +1321,9 @@
     "gpsStatHead": {
         "message": "GPS Statistics"
     },
+    "gpsSendDataMsp": {
+        "message": "Send GPS data (MSP)"
+    },
     "gpsMapHead": {
         "message": "Current GPS location"
     },
@@ -1383,6 +1386,15 @@
     },
     "gpsSignalStr": {
         "message": "Signal Strength"
+    },
+    "gpsInfoCenterMap": {
+        "message": "Center map"
+    },
+    "gpsSendDataActive": {
+        "message": "Send data"
+    },
+    "gpsAutoAccordingToAttitude": {
+        "message": "Attitude"
     },
 
     "motorsMaster": {

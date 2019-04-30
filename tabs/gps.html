@@ -5,7 +5,6 @@
             <a id="button-documentation" href="https://github.com/iNavFlight/inav/releases" target="_blank"></a>
         </div>
 
-
         <div class="cf_column fourth">
             <div class="spacer_right">
                 <div class="gui_box grey">
@@ -38,9 +37,18 @@
                                 <td data-i18n="gpsSats"></td>
                                 <td class="sats">0</td>
                             </tr>
-                            <tr class="noboarder">
+                            <tr>
                                 <td data-i18n="gpsDistToHome"></td>
                                 <td class="distToHome"></td>
+                            </tr>
+                            <tr class="noboarder">
+                                <td></td>
+                                <td>
+                                    <div class="checkbox">
+                                        <input type="checkbox" id="gps-info-center-map" class="toggle" checked="checked" />
+                                        <label for="gps-info-center-map">&nbsp;&nbsp;<span data-i18n="gpsInfoCenterMap"></span></label>
+                                    </div>
+                                </td>
                             </tr>
                         </table>
                     </div>
@@ -82,6 +90,97 @@
                         </table>
                     </div>
                 </div>
+                <div class="gui_box grey send-data-box" style="display: none;">
+                    <div class="gui_box_titlebar">
+                        <div class="spacer_box_title" data-i18n="gpsSendDataMsp"></div>
+                    </div>
+                    <div class="spacer_box GPS_send">
+                        <table class="cf_table">
+                            <tr>
+                                <td colspan=2 class="gpsSendDataActive">
+                                    <div class="checkbox">
+                                        <input type="checkbox" id="gps-send-data-active" class="toggle" />
+                                        <label for="gps-send-data-active">&nbsp;&nbsp;<span data-i18n="gpsSendDataActive"></span></label>
+                                    </div>
+                                </td>
+                                <td></td>
+                            </tr>
+                            <tr>
+                                <td><label for="gps-send-fix-type"><span data-i18n="gpsFix"></span></label></td>
+                                <td></td>
+                                <td class="gpsFix">
+                                    <div class="select">
+                                        <select id="gps-send-fix-type">
+                                            <option value="0">No fix</option>
+                                            <option value="1">2D</option>
+                                            <option value="2" selected="selected">3D</option>
+                                        </select>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="gps-send-sats"><span data-i18n="gpsSats"></span></label></td>
+                                <td></td>
+                                <td class="gpsSats">
+                                    <div class="number">
+                                        <input id="gps-send-sats" type="number" step="1" min="0" max="32">
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="gps-send-lat"><span data-i18n="gpsLat"></span></label></td>
+                                <td>
+                                    <div class="checkbox">
+                                        <input type="checkbox" id="gps-send-auto-attitude-coord" class="toggle" />
+                                        <label for="gps-send-auto-attitude-coord">&nbsp;&nbsp;<span data-i18n="gpsAutoAccordingToAttitude"></span></label>
+                                    </div>
+                                </td>
+                                <td class="gpsLat">
+                                    <div class="number">
+                                        <input id="gps-send-lat" type="number" step="1" min="-900000000" max="900000000">
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="gps-send-lon"><span data-i18n="gpsLon"></span></label></td>
+                                <td></td>
+                                <td class="gpsLon">
+                                    <div class="number">
+                                        <input id="gps-send-lon" type="number" step="1" min="-1800000000" max="1800000000">
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="gps-send-alt"><span data-i18n="gpsAltitude"></span></label></td>
+                                <td>
+                                    <div class="checkbox">
+                                        <input type="checkbox" id="gps-send-auto-attitude-alt" class="toggle" />
+                                        <label for="gps-send-auto-attitude-alt">&nbsp;&nbsp;<span data-i18n="gpsAutoAccordingToAttitude"></span></label>
+                                    </div>
+                                </td>
+                                <td class="gpsAlt">
+                                    <div class="number">
+                                        <input id="gps-send-alt" type="number" step="1" min="-10000" max="10000">
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><label for="gps-send-speed"><span data-i18n="gpsSpeed"></span></label></td>
+                                <td>
+                                    <div class="checkbox">
+                                        <input type="checkbox" id="gps-send-auto-attitude-speed" class="toggle" />
+                                        <label for="gps-send-auto-attitude-speed">&nbsp;&nbsp;<span data-i18n="gpsAutoAccordingToAttitude"></span></label>
+                                    </div>
+                                </td>
+                                <td class="gpsSpeed">
+                                    <div class="number">
+                                        <input id="gps-send-speed" type="number" step="1" min="0" max="10000">
+                                    </div>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -90,11 +189,9 @@
                 <div class="gui_box_titlebar" style="margin-bottom: 0;">
                     <div class="spacer_box_title" data-i18n="gpsMapHead"></div>
                 </div>
-                <div id="loadmap">
-                    <div id="gps-map"></div>
-                </div>
+                <div id="gps-map"></div>
+            </div>
         </div>
 
     </div>
-</div>
 </div>

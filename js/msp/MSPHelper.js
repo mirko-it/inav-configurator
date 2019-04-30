@@ -2094,16 +2094,18 @@ var mspHelper = (function (gui) {
                 break;
 
             case MSPCodes.MSP_SET_WP:
+                let lon = parseInt(MISSION_PLANER.bufferPoint.lon * 10000000);
+                let lat = parseInt(MISSION_PLANER.bufferPoint.lat * 10000000);
                 buffer.push(MISSION_PLANER.bufferPoint.number);    // sbufReadU8(src);    // number
                 buffer.push(MISSION_PLANER.bufferPoint.action);    // sbufReadU8(src);    // action
-                buffer.push(specificByte(MISSION_PLANER.bufferPoint.lat, 0));    // sbufReadU32(src);      // lat
-                buffer.push(specificByte(MISSION_PLANER.bufferPoint.lat, 1));
-                buffer.push(specificByte(MISSION_PLANER.bufferPoint.lat, 2));
-                buffer.push(specificByte(MISSION_PLANER.bufferPoint.lat, 3));
-                buffer.push(specificByte(MISSION_PLANER.bufferPoint.lon, 0));    // sbufReadU32(src);      // lon
-                buffer.push(specificByte(MISSION_PLANER.bufferPoint.lon, 1));
-                buffer.push(specificByte(MISSION_PLANER.bufferPoint.lon, 2));
-                buffer.push(specificByte(MISSION_PLANER.bufferPoint.lon, 3));
+                buffer.push(specificByte(lat, 0));                 // sbufReadU32(src);      // lat
+                buffer.push(specificByte(lat, 1));
+                buffer.push(specificByte(lat, 2));
+                buffer.push(specificByte(lat, 3));
+                buffer.push(specificByte(lon, 0));                 // sbufReadU32(src);      // lon
+                buffer.push(specificByte(lon, 1));
+                buffer.push(specificByte(lon, 2));
+                buffer.push(specificByte(lon, 3));
                 buffer.push(specificByte(MISSION_PLANER.bufferPoint.alt, 0));    // sbufReadU32(src);      // to set altitude (cm)
                 buffer.push(specificByte(MISSION_PLANER.bufferPoint.alt, 1));
                 buffer.push(specificByte(MISSION_PLANER.bufferPoint.alt, 2));
