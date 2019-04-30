@@ -39,6 +39,7 @@ var concat = require('gulp-concat');
 var sources = {};
 
 sources.css = [
+    './node_modules/jquery-ui-npm/jquery-ui.min.css',
     './main.css',
     './js/libraries/jquery.nouislider.min.css',
     './js/libraries/jquery.nouislider.pips.min.css',
@@ -68,6 +69,7 @@ sources.js = [
     './js/libraries/jbox/jBox.min.js',
     './js/libraries/switchery/switchery.js',
     './js/libraries/jquery.ba-throttle-debounce.js',
+    './js/libraries/createParameter.js',
     './js/helpers.js',
     './node_modules/inflection/inflection.min.js',
     './node_modules/bluebird/js/browser/bluebird.min.js',

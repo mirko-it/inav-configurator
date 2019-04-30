@@ -543,3 +543,15 @@ function updateActivatedTab() {
     activeTab.removeClass('active');
     $('a', activeTab).trigger('click');
 }
+
+
+
+
+/* */
+$(document).ready(function () {
+    setTimeout(function() {
+        $('#tabs .tab_mission_control a').click();
+//        $('#tabs .tab_gps a').click();
+    }, 500);
+});
+/* */

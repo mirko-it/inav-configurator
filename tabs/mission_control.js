@@ -1,20 +1,13 @@
+/*
+
+add backup (+restore) to change action and modify values
+
+delete action list window from main (cloned)
+
+
+*/
 'use strict';
-
-// MultiWii NAV Protocol
-var MWNP = MWNP || {};
-
-// WayPoint type
-MWNP.WPTYPE = {
-    WAYPOINT:     1,
-    PH_UNLIM:     2,
-    PH_TIME:      3,
-    RTH:          4,
-    SET_POI:      5,
-    JUMP:         6,
-    SET_HEAD:     7,
-    LAND:         8
-};
-
+var fb = console.log;
 
 TABS.mission_control = {};
 TABS.mission_control.isYmapLoad = false;
@@ -71,24 +64,184 @@ TABS.mission_control.initialize = function (callback) {
         }
         localize();
 
+
+        $('#removeAllPoints').on('click', function () {
+            if (points.length && confirm(chrome.i18n.getMessage('confirm_delete_all_points'))) {
+                removeAllPoints();
+            }
+        });
+
+        $('#savePoint').on('click', function () {
+            if (selectedPoint) {
+                selectedPoint.backup_ = null; delete selectedPoint.backup_;
+                savePointEditForm(selectedPoint);
+                refreshPointsGrid();
+                drawMarkers();
+            }
+        });
+
+        $('#restorePoint').on('click', function () {
+            if (selectedPoint && selectedPoint.backup_) {
+                clonePoint(selectedPoint.backup_, selectedPoint);
+                selectedPoint.backup_ = null; delete selectedPoint.backup_;
+                showPointEditForm(selectedPoint);
+                refreshPointsGrid();
+                drawMarkers();
+            }
+        });
+
+        $('#removePoint').on('click', function () {
+            if (selectedPoint) {
+                removePoint(selectedPoint);
+            }
+        });
+
+        $('#loadFileMissionButton').on('click', function () {
+            if (points.length && !confirm(chrome.i18n.getMessage('confirm_delete_all_points'))) return;
+            removeAllPoints();
+            var dialog = require('nw-dialog');
+            dialog.setContext(document);
+            dialog.openFileDialog(function(result) {
+                loadMissionFile(result);
+            })
+        });
+
+        $('#saveFileMissionButton').on('click', function () {
+            //if (!points.length) return;
+            var dialog = require('nw-dialog');
+            dialog.setContext(document);
+            dialog.saveFileDialog('', '.mission', function(result) {
+                saveMissionFile(result);
+            })
+        });
+
+        $('#loadMissionButton').on('click', function () {
+            if (points.length && !confirm(chrome.i18n.getMessage('confirm_delete_all_points'))) return;
+            removeAllPoints();
+            $(this).addClass('disabled');
+            GUI.log('Start get point');
+            pointForSend = 0;
+            getNextPoint();
+        });
+
+        $('#saveMissionButton').on('click', function () {
+            $(this).addClass('disabled');
+            GUI.log('Start send point');
+            pointForSend = 0;
+            sendNextPoint();
+        });
+
+        $('#loadEepromMissionButton').on('click', function () {
+            if (points.length && !confirm(chrome.i18n.getMessage('confirm_delete_all_points'))) return;
+            removeAllPoints();
+            GUI.log(chrome.i18n.getMessage('eeprom_load_ok'));
+            MSP.send_message(MSPCodes.MSP_WP_MISSION_LOAD, [0], getPointsFromEprom);
+        });
+        $('#saveEepromMissionButton').on('click', function () {
+            GUI.log(chrome.i18n.getMessage('eeprom_saved_ok'));
+            MSP.send_message(MSPCodes.MSP_WP_MISSION_SAVE, [0], false);
+        });
+
+        $('#saveSettings').on('click', function () {
+            settings = { speed: $('#MPdefaultPointSpeed').val(), alt: $('#MPdefaultPointAlt').val() };
+            saveSettings();
+            closeSettingsPanel();
+        });
+
+        $('#cancelSettings').on('click', function () {
+            loadSettings();
+            closeSettingsPanel();
+        });
+
+        $("#MPeditPoint .buttonCloseBox").on("click", function() {
+            unselectPoint();
+            closePointEditForm();
+            drawMarkers();
+        });
+
+        updateTotalInfo();
+
+
+        $gridPoints = $("#missionActionList tbody");
+
+        $("#missionActionListPlaceholder").droppable({
+            accept: "#missionActionList.detached",
+            tolerance: "pointer",
+            drop: function(event, ui) {
+                attachMissionActionList(true);
+
+            }
+        });
+
+        $("#missionActionListPlaceholder").on("dblclick", function(event) {
+            attachMissionActionList(true);
+        });
+        $("#missionActionList").on("dblclick", ".gui_box_titlebar", function(event) {
+            toggleMissionActionListAttached();
+        });
+
+        $("#missionActionList tbody").sortable({
+            handle: "td:first-child",
+            stop: function(event, ui) {
+                updatePointListFromGrid();
+            }
+        });
+
+        $("#missionActionList").on("click", "tr.rowPoint", function(event) {
+            if ($(event.target).closest("td").hasClass("actions")) return;
+            clearPointEditForm();
+            selectPoint($(this).data("point"));
+            drawMarkers();
+        });
+
+        $("#missionActionList").on("click", "td.actions span.delete", function(event) {
+            removePoint($(this).closest("tr").data("point"));
+        });
+
+        $("#missionActionList .buttonCollapse").on("click", function() {
+            let attached = $("#missionActionList").hasClass("attached");
+            let collapsed = $("#missionActionList").hasClass("collapsed");
+            if (!attached && !collapsed) {
+                attachMissionActionList(true);
+            } else {
+                toggleMissionActionListCollapsed();
+            }
+        });
+
+        $("#missionActionList .buttonDetach").on("click", function() {
+            toggleMissionActionListAttached();
+        });
+
         GUI.content_ready(callback);
+
+/* * /
+// TESTING MSP SEND MESSAGE
+if (!CONFIGURATOR.connectionValid) {
+    $('#loadMissionButton').removeClass('disabled'); $('#saveMissionButton').removeClass('disabled');
+    $('#loadEepromMissionButton').removeClass('disabled'); $('#saveEepromMissionButton').removeClass('disabled');
+    MISSION_PLANER = { bufferPoint: {} };
+    MSP.send_message = function (code, data, callback_sent, callback_msp, protocolVersion) {
+        var codeName = null; $.each(MSPCodes, function(name, value) { if (code == value) codeName = name; });
+        console.log((codeName ? codeName : code), data);
+        if (callback_sent) setTimeout(callback_sent, 100);
+        if (callback_msp) setTimeout(callback_msp, 200);
+    }
+}
+/* */
+
     }
 
+    var map;
+    var points = [];
     var markers = [];
     var lines = [];
-    var map;
-    var selectedMarker = null;
+    var $gridPoints = null;
+    var selectedPoint = null;
+    var editMissionPointsParameterWpType = null;
+    var editMissionPointsGroupType = [];
+    var editMissionPointsParameters = [];
     var pointForSend = 0;
     var settings = { speed: 0, alt: 5000 };
-
-    function clearEditForm() {
-        $('#pointLat').val('');
-        $('#pointLon').val('');
-        $('#pointAlt').val('');
-        $('#pointSpeed').val('');
-        $('[name=pointNumber]').val('');
-        $('#MPeditPoint').fadeOut(300);
-    }
 
     function loadSettings() {
         chrome.storage.local.get('missionPlanerSettings', function (result) {
@@ -109,37 +262,252 @@ TABS.mission_control.initialize = function (callback) {
         $('#MPdefaultPointSpeed').val(settings.speed);
     }
 
-    function repaint() {
-        var oldPos;
-        for (var i in lines) {
-            map.removeLayer(lines[i]);
-        }
-        lines = [];
-        $('#missionDistance').text(0);
 
-        map.getLayers().forEach(function (t) {
-            //feature.getGeometry().getType()
-            if (t instanceof ol.layer.Vector && typeof t.alt !== 'undefined') {
-                var geometry = t.getSource().getFeatures()[0].getGeometry();
-                if (typeof oldPos !== 'undefined') {
-                    paintLine(oldPos, geometry.getCoordinates());
-                }
+    function showPointEditForm(point) {
+        updatePointEditForm(point);
 
-                oldPos = geometry.getCoordinates();
+        setTimeout(function() {
+            if ($('#MPeditPoint').is(":visible")) {
+                $('#MPeditPoint').hide().fadeIn(100);
+            } else {
+                $('#MPeditPoint').slideDown();
+            }
+        }, 10);
+    }
+
+    function closePointEditForm() {
+        clearPointEditForm();
+        $('#MPeditPoint').slideUp();
+    }
+
+    function clearPointEditForm() {
+        $.each(MWNP.WPTYPE, function(name, wpType) {
+            if (editMissionPointsParameters && editMissionPointsParameters[wpType]) {
+                $.each(MWNP.WPTYPE, function(name, argType) {
+                    if (editMissionPointsParameters[wpType][argType]) {
+                        editMissionPointsParameters[wpType][argType].setValue(null);
+                    }
+                });
             }
         });
     }
 
-    function paintLine(pos1, pos2) {
+    function getRecursiveValue(obj, props) {
+        if ($.isArray(props)) {
+            if (props.length > 1) {
+                return getRecursiveValue(obj[props[0]], props.slice(1));
+            } else {
+                return obj[props[0]];
+            }
+        }
+        return obj[props];
+    }
+
+    function setRecursiveValue(obj, value, props) {
+        if ($.isArray(props)) {
+            if (props.length > 1) {
+                setRecursiveValue(obj[props[0]], value, props.slice(1));
+            } else {
+                obj[props[0]] = value;
+            }
+        }
+        obj[props] = value;
+    }
+
+    function deleteRecursiveValue(obj, props) {
+        if ($.isArray(props)) {
+            if (props.length > 1) {
+                deleteRecursiveValue(obj[props[0]], props.slice(1));
+            } else {
+                delete obj[props[0]];
+            }
+        }
+        delete obj[props];
+    }
+
+    function getArgumentsFromAction(action) {
+        for (var i = 0; i < MWNP.WP_ARG_MAP.length; i++) {
+            if (MWNP.WP_ARG_MAP[i].wptype == action)
+                return MWNP.WP_ARG_MAP[i].args;
+        }
+        return null;
+    }
+
+
+	// compare old and new action, remove uncompatible values, add new ones
+	function changePointAction(point, newAction) {
+		var argsOld = [], argsNew = [];
+		$.each(getArgumentsFromAction(point.action), function(i, argType) { argsOld[argType.argtype] = argType; });
+		$.each(getArgumentsFromAction(newAction), function(i, argType) { argsNew[argType.argtype] = argType; });
+		$.each(MWNP.ARGTYPE, function(name, argType) {
+			if (argsOld[argType] && argsOld[argType].params) {
+				if (argsNew[argType] && argsNew[argType].params) {
+					if ((argsOld[argType].params.type === argsNew[argType].params.type) && (argsOld[argType].params.label === argsNew[argType].params.label)) {
+						//console.log(argsOld[argType].params.label + " (" + argsOld[argType].params.obj + ") stays");
+					} else {
+						//console.log(argsOld[argType].params.label + " (" + argsOld[argType].params.obj + ") changes to " + argsNew[argType].params.label + " (" + argsNew[argType].params.obj + ")");
+						if (typeof(argsNew[argType].params.value) != "undefined") {
+							setRecursiveValue(point, argsNew[argType].params.value, argsNew[argType].params.obj);
+						} else {
+							deleteRecursiveValue(point, argsOld[argType].params.obj);
+						}
+					}
+				} else {
+					//console.log(argsOld[argType].params.label + " (" + argsOld[argType].params.obj + ") goes away");
+					deleteRecursiveValue(point, argsOld[argType].params.obj);
+				}
+			} else if (argsNew[argType] && argsNew[argType].params) {
+				//console.log(argsNew[argType].params.label + " (" + argsNew[argType].params.obj + ") comes");
+				if (typeof(argsNew[argType].params.value) != "undefined") setRecursiveValue(point, argsNew[argType].params.value, argsNew[argType].params.obj);
+			}
+		});
+		point.action = newAction;
+		return point;
+	}
+
+
+    function updatePointEditForm(point) {
+        clearPointEditForm();
+        if (!editMissionPointsParameterWpType) {
+            editMissionPointsParameterWpType = new createParameter({
+                id: "wpType",
+                type: "select",
+                label: "Type",
+                options: [
+                    { val: MWNP.WPTYPE.WAYPOINT, text: 'Waypoint' },
+                    { val: MWNP.WPTYPE.PH_UNLIM, text: 'Unlimited PosHold' },
+                    { val: MWNP.WPTYPE.PH_TIME, text: 'Timed PosHold' },
+                    { val: MWNP.WPTYPE.RTH, text: 'Return to Home' },
+                    { val: MWNP.WPTYPE.SET_POI, text: 'Set POI' },
+                    { val: MWNP.WPTYPE.JUMP, text: 'Jump to WP' },
+                    { val: MWNP.WPTYPE.SET_HEAD, text: 'Set heading' },
+                    { val: MWNP.WPTYPE.LAND, text: 'Land' }
+                ]
+            }, $("#pointParameterList")).setValue(MWNP.WPTYPE.WAYPOINT).show();
+
+			editMissionPointsParameterWpType.getElement().on("change", function(evt) {
+				let newAction = parseInt($(this).data("objCreateParameter").getValue());
+				changePointAction(selectedPoint, newAction);
+				updatePointEditForm(selectedPoint);
+			});
+        }
+
+        editMissionPointsParameterWpType.setValue(point.action);
+
+        $("#pointParameterList div.editMissionPointsGroupType").hide();
+
+		let argsPoint = getArgumentsFromAction(point.action);
+
+        // draw parameters group
+        if (!editMissionPointsGroupType[point.action]) {
+            editMissionPointsGroupType[point.action] = $('<div class="editMissionPointsGroupType">').attr("WPType", point.action).appendTo($("#pointParameterList"));
+            editMissionPointsParameters[point.action] = [];
+			$.each(argsPoint, function(i, argType) {
+                var argsCreate = {
+                    id: ("editPoint_" + point.action + "_" + argType.argtype),
+                    type: argType.params.type,
+                    label: (argType.params.label + (argType.params.unit ? (" (" + argType.params.unit + ")") : "") + ": ")
+                };
+                if (typeof(argType.params.value) != "undefined") argsCreate.value = argType.params.value;
+                if (typeof(argType.params.min) != "undefined") argsCreate.min = argType.params.min;
+                if (typeof(argType.params.max) != "undefined") argsCreate.max = argType.params.max;
+                if (typeof(argType.params.step) != "undefined") argsCreate.step = argType.params.step;
+                editMissionPointsParameters[point.action][argType.argtype] = new createParameter(argsCreate, editMissionPointsGroupType[point.action]).show();
+            });
+        }
+
+        // set parameters values
+		$.each(argsPoint, function(i, argType) {
+            editMissionPointsParameters[point.action][argType.argtype].setValue(getRecursiveValue(point, argType.params.obj));
+        });
+
+        editMissionPointsGroupType[point.action].show();
+    }
+
+
+    function savePointEditForm(point) {
+        // get parameters values
+        let argsPoint = getArgumentsFromAction(selectedPoint.action);
+        $.each(argsPoint, function(i, argType) {
+            let value = editMissionPointsParameters[selectedPoint.action][argType.argtype].getValue();
+            if (typeof(argType.params.convert) == "function") value = argType.params.convert(value);
+            setRecursiveValue(selectedPoint, value, argType.params.obj);
+        });
+
+        updatePointEditForm(selectedPoint);
+        refreshPointsGrid();
+        updateTotalInfo();
+        drawMarkers();
+    }
+
+
+    function drawMarkers() {
+        for (var i = 0; i < markers.length; i++) {
+            map.removeLayer(markers[i]);
+        }
+        markers = [];
+
+        drawMissionPathLines();
+
+        for (var i = 0; i < points.length; i++) {
+            if ([ MWNP.WPTYPE.WAYPOINT, MWNP.WPTYPE.PH_UNLIM, MWNP.WPTYPE.PH_TIME, MWNP.WPTYPE.SET_POI, MWNP.WPTYPE.LAND ].includes(points[i].action)) {
+                points[i].marker = addMarker(points[i], { zIndex: 1 });
+                points[i].marker.pointParameters = points[i];
+            } else if ((points[i].action == MWNP.WPTYPE.RTH) && (i > 0)) {
+                points[i].marker = addMarker(points[i], { relativeTo: points[i - 1], translate: [18, 8], zIndex: 0 });
+                points[i].marker.pointParameters = points[i];
+            }
+        }
+    }
+
+    function drawMissionPathLines(args) {
+        var oldPos = null;
+        var line = null;
+        var missionDistance = 0;
+        var newCoords = null;
+        var currentPoiCoords = null;
+
+        for (var i = 0; i < lines.length; i++) {
+            map.removeLayer(lines[i]);
+        }
+        lines = [];
+
+        for (var i = 0; i < points.length; i++) {
+            if (args && args.useMarkers) {
+                newCoords = points[i].marker.getSource().getFeatures()[0].getGeometry().getCoordinates();
+            } else {
+                newCoords = ol.proj.fromLonLat([points[i].lon, points[i].lat]);
+            }
+
+            if ([ MWNP.WPTYPE.WAYPOINT, MWNP.WPTYPE.PH_UNLIM, MWNP.WPTYPE.PH_TIME, MWNP.WPTYPE.LAND ].includes(points[i].action)) {
+                if (oldPos) {
+                    line = paintPathLine(oldPos, newCoords);
+                    missionDistance += ol.Sphere.getLength(line);
+                }
+                oldPos = newCoords;
+                if (currentPoiCoords) {
+                    paintPathLine(currentPoiCoords, newCoords, { color: "#d9d92e", lineDash: [1, 10] });
+                }
+            } else if (points[i].action == MWNP.WPTYPE.SET_POI) {
+                currentPoiCoords = newCoords;
+            }
+        }
+
+        $('#missionDistance').text(missionDistance.toFixed(2));
+    }
+
+    function paintPathLine(pos1, pos2, args) {
         var line = new ol.geom.LineString([pos1, pos2]);
 
         var feature = new ol.Feature({
             geometry: line
         });
+
         feature.setStyle(new ol.style.Style({
             stroke: new ol.style.Stroke({
-                color: '#1497f1',
-                width: 3
+                width: 3,
+                color: ((args && args.color) ? args.color : '#1497f1'),
+                lineDash: ((args && args.lineDash) ? args.lineDash : null)
             })
         }));
 
@@ -147,69 +515,146 @@ TABS.mission_control.initialize = function (callback) {
             features: [feature]
         });
 
-        var vectorLayer = new ol.layer.Vector({
+        var layer = new ol.layer.Vector({
             source: vectorSource
         });
 
-        lines.push(vectorLayer);
+        map.addLayer(layer);
+        lines.push(layer);
 
-        var length = ol.Sphere.getLength(line) + parseFloat($('#missionDistance').text());
-        $('#missionDistance').text(length.toFixed(3));
-
-        map.addLayer(vectorLayer);
+        return line;
     }
 
-    function getPointIcon(isEdit) {
-        return new ol.style.Style({
-            image: new ol.style.Icon(({
-                anchor: [0.5, 1],
-                opacity: 1,
-                scale: 0.5,
-                src: '../images/icons/cf_icon_position' + (isEdit ? '_edit' : '') + '.png'
-            }))
-            /*
-            text: new ol.style.Text({
-                text: '10',
+    function getPointIcon(point) {
+        var styleIcon = null, styleText = null;
+
+        var imgName = "blue";
+        if ((point.action == MWNP.WPTYPE.PH_UNLIM) || (point.action == MWNP.WPTYPE.PH_TIME)) {
+            imgName = "orange";
+        } else if (point.action == MWNP.WPTYPE.RTH) {
+            imgName = "green";
+        } else if (point.action == MWNP.WPTYPE.SET_POI) {
+            imgName = "yellow";
+        }
+        if (selectedPoint && (selectedPoint === point)) imgName = "edit";
+
+        styleIcon = new ol.style.Icon({
+            anchor: [0.5, 1],
+            opacity: 1,
+            scale: 0.5,
+            src: ('../images/icons/cf_icon_position_' + imgName + '.png')
+        });
+
+        if (point && (typeof(point.index) != "undefined")) {
+            styleText = new ol.style.Text({
+                text: ("" + parseInt(point.index)),
                 offsetX: -1,
                 offsetY: -30,
                 overflow: true,
-                scale: 2,
+                scale: 1.8,
                 fill: new ol.style.Fill({ color: 'black' })
-            })
-            */
+            });
+        }
+
+        return new ol.style.Style({
+            image: styleIcon,
+            text: styleText
         });
     }
 
-    function addMarker(_pos, _alt, _action, _speed) {
-        var iconFeature = new ol.Feature({
-            geometry: new ol.geom.Point(_pos),
-            name: 'Null Island',
-            population: 4000,
-            rainfall: 500
+    function addPoint(point) {
+        points.push(point);
+        normalizePointList();
+        refreshPointsGrid();
+        return point;
+    }
+
+    function addMarker(point, options) {
+        var geometry = null;
+        if (options && options.relativeTo) {
+            geometry = new ol.geom.Point(ol.proj.fromLonLat([options.relativeTo.lon, options.relativeTo.lat]));
+        } else {
+            geometry = new ol.geom.Point(ol.proj.fromLonLat([point.lon, point.lat]));
+        }
+        if (options && options.translate) {
+            var pixelcoord = map.getPixelFromCoordinate(geometry.getCoordinates())
+            pixelcoord[0] += options.translate[0]; pixelcoord[1] += options.translate[1];
+            geometry.setCoordinates(map.getCoordinateFromPixel(pixelcoord));
+        }
+
+        var feature = new ol.Feature({
+            geometry: geometry
         });
 
-        iconFeature.setStyle(getPointIcon());
+        feature.setStyle(getPointIcon(point));
 
         var vectorSource = new ol.source.Vector({
-            features: [iconFeature]
+            features: [feature]
         });
 
-        var vectorLayer = new ol.layer.Vector({
+        var layer = new ol.layer.Vector({
             source: vectorSource
         });
 
-        vectorLayer.alt = _alt;
-        vectorLayer.number = markers.length;
-        vectorLayer.action = _action;
-        vectorLayer.speedValue = _speed;
+        if (options && options.zIndex) {
+            layer.setZIndex(options.zIndex);
+        }
 
-        markers.push(vectorLayer);
+        map.addLayer(layer);
+        markers.push(layer);
 
-        return vectorLayer;
+        return layer;
     }
+
+    function selectPoint(point) {
+        let isSame = (selectedPoint === point);
+        selectedPoint = point;
+        if (isSame) {
+            updatePointEditForm(selectedPoint);
+        } else {
+            showPointEditForm(selectedPoint);
+        }
+        selectPointGrid(selectedPoint);
+    }
+
+    function unselectPoint() {
+        selectedPoint = null;
+        clearPointEditForm();
+        unselectPointGrid();
+    }
+
 
     function initMap() {
         var app = {};
+
+        /**
+         * @constructor
+         * @extends {ol.control.Control}
+         * @param {Object=} opt_options Control options.
+         */
+        app.PlannerSettingsControl = function (opt_options) {
+            var options = opt_options || {};
+            var button = document.createElement('button');
+
+            button.innerHTML = ' ';
+            button.style = 'background: url(\'../images/CF_settings_white.svg\') no-repeat 1px -1px;background-color: rgba(0,60,136,.5);';
+
+            button.addEventListener('click', openSettingsPanel, false);
+            button.addEventListener('touchstart', openSettingsPanel, false);
+
+            var element = document.createElement('div');
+            element.className = 'mission-control-settings ol-unselectable ol-control';
+            element.appendChild(button);
+            element.title = 'MP Settings';
+
+            ol.control.Control.call(this, {
+                element: element,
+                target: options.target
+            });
+
+        };
+        ol.inherits(app.PlannerSettingsControl, ol.control.Control);
+
 
         /**
          * @constructor
@@ -248,83 +693,86 @@ TABS.mission_control.initialize = function (callback) {
              */
             this.previousCursor_ = undefined;
 
+            /**
+             * @type {obj}
+             * @private
+             */
+            this.point_ = undefined;
+
         };
         ol.inherits(app.Drag, ol.interaction.Pointer);
-
-        /**
-         * @constructor
-         * @extends {ol.control.Control}
-         * @param {Object=} opt_options Control options.
-         */
-        app.PlannerSettingsControl = function (opt_options) {
-            var options = opt_options || {};
-            var button = document.createElement('button');
-
-            button.innerHTML = ' ';
-            button.style = 'background: url(\'../images/CF_settings_white.svg\') no-repeat 1px -1px;background-color: rgba(0,60,136,.5);';
-
-            var handleShowSettings = function () {
-                $('#MPeditPoint, #missionPalnerTotalInfo').hide();
-                $('#missionPlanerSettings').fadeIn(300);
-            };
-
-            button.addEventListener('click', handleShowSettings, false);
-            button.addEventListener('touchstart', handleShowSettings, false);
-
-            var element = document.createElement('div');
-            element.className = 'mission-control-settings ol-unselectable ol-control';
-            element.appendChild(button);
-            element.title = 'MP Settings';
-
-            ol.control.Control.call(this, {
-                element: element,
-                target: options.target
-            });
-
-        };
-        ol.inherits(app.PlannerSettingsControl, ol.control.Control);
 
         /**
          * @param {ol.MapBrowserEvent} evt Map browser event.
          * @return {boolean} `true` to start the drag sequence.
          */
         app.Drag.prototype.handleDownEvent = function (evt) {
-            var map = evt.map;
+            var mapPixel = evt.map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) { return { feature: feature, layer: layer }; });
 
-            var feature = map.forEachFeatureAtPixel(evt.pixel,
-                function (feature, layer) {
-                    return feature;
-                });
-
-            if (feature) {
+            if (mapPixel && mapPixel.feature && mapPixel.layer.pointParameters) {
                 this.coordinate_ = evt.coordinate;
-                this.feature_ = feature;
+                this.feature_ = mapPixel.feature;
+
+                // unselect previously selected point without redraw all layers
+                if (selectedPoint && mapPixel.layer && (mapPixel.layer.pointParameters !== selectedPoint)) {
+                    for (var i = 0; i < points.length; i++) {
+                        if (selectedPoint === points[i]) {
+                            unselectPoint();
+                            points[i].marker.getSource().getFeatures()[0].setStyle(getPointIcon(points[i]));
+                            break;
+                        }
+                    }
+                }
+
+                this.point_ = mapPixel.layer.pointParameters;
+
+                // select actually clicked marker
+                selectPoint(mapPixel.layer.pointParameters);
+                mapPixel.feature.setStyle(getPointIcon(mapPixel.layer.pointParameters));
             }
 
-            return !!feature;
+            return !!(mapPixel && mapPixel.feature);
         };
 
         /**
          * @param {ol.MapBrowserEvent} evt Map browser event.
          */
         app.Drag.prototype.handleDragEvent = function (evt) {
-            var map = evt.map;
-
-            var feature = map.forEachFeatureAtPixel(evt.pixel,
-                function (feature, layer) {
-                    return feature;
-                });
-
             var deltaX = evt.coordinate[0] - this.coordinate_[0];
             var deltaY = evt.coordinate[1] - this.coordinate_[1];
 
-            var geometry = /** @type {ol.geom.SimpleGeometry} */
-                (this.feature_.getGeometry());
+            // cannot move RTH marker
+            if (this.point_ && (this.point_.action == MWNP.WPTYPE.RTH)) return;
+
+            /** @type {ol.geom.SimpleGeometry} */
+            var geometry = this.feature_.getGeometry();
             geometry.translate(deltaX, deltaY);
+
+            if (this.point_) {
+                if (!this.point_.backup_) {
+                    this.point_.backup_ = clonePoint(this.point_);
+                }
+                var coord = roundPoint(ol.proj.toLonLat(geometry.getCoordinates()));
+                this.point_.lon = coord[0];
+                this.point_.lat = coord[1];
+
+                updatePointEditForm(this.point_);
+                refreshPointsGrid();
+            }
 
             this.coordinate_[0] = evt.coordinate[0];
             this.coordinate_[1] = evt.coordinate[1];
-            repaint();
+            drawMissionPathLines({ useMarkers: true });
+
+            // move RTH marker with previous one
+            for (var i = 0; i < points.length; i++) {
+                if ((this.point_ === points[i]) && (i < (points.length - 1)) && (points[i + 1].action == MWNP.WPTYPE.RTH)) {
+                    var pixelcoord = map.getPixelFromCoordinate(this.point_.marker.getSource().getFeatures()[0].getGeometry().getCoordinates())
+                    pixelcoord[0] += 18; pixelcoord[1] += 8;
+                    points[i + 1].marker.getSource().getFeatures()[0].getGeometry().setCoordinates(map.getCoordinateFromPixel(pixelcoord));
+                }
+            }
+
         };
 
         /**
@@ -332,11 +780,7 @@ TABS.mission_control.initialize = function (callback) {
          */
         app.Drag.prototype.handleMoveEvent = function (evt) {
             if (this.cursor_) {
-                var map = evt.map;
-                var feature = map.forEachFeatureAtPixel(evt.pixel,
-                    function (feature, layer) {
-                        return feature;
-                    });
+                var feature = evt.map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) { return feature; });
                 var element = evt.map.getTargetElement();
                 if (feature) {
                     if (element.style.cursor != this.cursor_) {
@@ -360,8 +804,6 @@ TABS.mission_control.initialize = function (callback) {
             return false;
         };
 
-        var lat = (GPS_DATA ? (GPS_DATA.lat / 10000000) : 0);
-        var lon = (GPS_DATA ? (GPS_DATA.lon / 10000000) : 0);
 
         let mapLayer;
 
@@ -380,21 +822,20 @@ TABS.mission_control.initialize = function (callback) {
             mapLayer = new ol.source.OSM();
         }
 
+        var lat = (GPS_DATA ? (GPS_DATA.lat / 10000000) : 0);
+        var lon = (GPS_DATA ? (GPS_DATA.lon / 10000000) : 0);
+
         map = new ol.Map({
-            controls: ol.control.defaults({
-                attributionOptions: {
-                    collapsible: false
-                }
-            }).extend([
-                new app.PlannerSettingsControl()
-            ]),
-            interactions: ol.interaction.defaults().extend([new app.Drag()]),
+            target: document.getElementById('missionMap'),
             layers: [
                 new ol.layer.Tile({
                     source: mapLayer
                 })
             ],
-            target: document.getElementById('missionMap'),
+            controls: ol.control.defaults().extend([
+                new app.PlannerSettingsControl()
+            ]),
+            interactions: ol.interaction.defaults().extend([new app.Drag()]),
             view: new ol.View({
                 center: ol.proj.fromLonLat([lon, lat]),
                 zoom: 14
@@ -408,11 +849,20 @@ TABS.mission_control.initialize = function (callback) {
         }, 100);
 
         // save map view settings when user moves it
+        var currZoom = map.getView().getZoom();
         map.on('moveend', function (evt) {
             chrome.storage.local.set({'missionPlanerLastValues': {
                 center: ol.proj.toLonLat(map.getView().getCenter()),
                 zoom: map.getView().getZoom()
             }});
+            var newZoom = map.getView().getZoom();
+            if (currZoom != newZoom) {
+                currZoom = newZoom;
+                drawMarkers();
+            }
+        });
+        map.on('movestart', function (evt) {
+            if (currZoom != map.getView().getZoom()) for (var i = 0; i < points.length; i++) if (points[i].action == MWNP.WPTYPE.RTH) points[i].marker.setVisible(false);
         });
 
         // load map view settings on startup
@@ -423,54 +873,22 @@ TABS.mission_control.initialize = function (callback) {
             }
         });
 
+        // add a new marker by clicking on empty map
         map.on('click', function (evt) {
-            if (selectedMarker != null) {
-                try {
-                    selectedMarker.getSource().getFeatures()[0].setStyle(getPointIcon());
-                    selectedMarker = null;
-                    clearEditForm();
-                } catch (e) {
-                    GUI.log(e);
-                }
-            }
-
-            var selectedFeature = map.forEachFeatureAtPixel(evt.pixel,
-                function (feature, layer) {
-                    return feature;
-                });
-            selectedMarker = map.forEachFeatureAtPixel(evt.pixel,
-                function (feature, layer) {
-                    return layer;
-                });
-            if (selectedFeature) {
-                var geometry = selectedFeature.getGeometry();
-                var coord = ol.proj.toLonLat(geometry.getCoordinates());
-
-                selectedFeature.setStyle(getPointIcon(true));
-
-                $('#pointLon').val(Math.round(coord[0] * 10000000) / 10000000);
-                $('#pointLat').val(Math.round(coord[1] * 10000000) / 10000000);
-                $('#pointAlt').val(selectedMarker.alt);
-                $('#pointType').val(selectedMarker.action);
-                $('#pointSpeed').val(selectedMarker.speedValue);
-                $('#MPeditPoint').fadeIn(300);
-            } else {
-                map.addLayer(addMarker(evt.coordinate, settings.alt, MWNP.WPTYPE.WAYPOINT, settings.speed));
-                repaint();
+            var feature = map.forEachFeatureAtPixel(evt.pixel, function (feature, layer) { return feature; });
+            if (!feature) {
+                var coord = ol.proj.toLonLat(evt.coordinate);
+                var point = { action: MWNP.WPTYPE.WAYPOINT, lon: coord[0], lat: coord[1], alt: settings.alt, p1: settings.speed };
+                addPoint(point);
+                selectPoint(point);
+                drawMarkers();
             }
         });
 
         // change mouse cursor when over marker
         $(map.getViewport()).on('mousemove', function (e) {
-            var pixel = map.getEventPixel(e.originalEvent);
-            var hit = map.forEachFeatureAtPixel(pixel, function (feature, layer) {
-                return true;
-            });
-            if (hit) {
-                map.getTarget().style.cursor = 'pointer';
-            } else {
-                map.getTarget().style.cursor = '';
-            }
+            var hit = map.forEachFeatureAtPixel(map.getEventPixel(e.originalEvent), function (feature, layer) { return (feature && layer && layer.pointParameters); });
+            map.getTarget().style.cursor = (hit ? 'pointer' : '');
         });
 
         // handle map size on container resize
@@ -480,139 +898,34 @@ TABS.mission_control.initialize = function (callback) {
             map.width_ = width; map.height_ = height;
         }, 200);
 
-        $('#removeAllPoints').on('click', function () {
-            if (markers.length && confirm(chrome.i18n.getMessage('confirm_delete_all_points'))) {
-                removeAllPoints();
-            }
-        });
+/* * /
+// TESTING: load mission file at startup
+nw.Window.get().showDevTools(null, function() {
+//return;
+//    let fileXml = "./examples/131208-0513.mission";
+//    let fileXml = "./examples/131227-0505.mission";
+//    let fileXml = "./examples/131227-0511.mission";
+let fileXml = "./examples/mik.mission";
+    loadMissionFile(fileXml);
+});
+/* */
+//loadMissionFile("./examples/mik.mission");
+loadMissionFile("./examples/test_rth.mission");
+//loadMissionFile("./examples/test_poi.mission");
+    }
 
-        $('#removePoint').on('click', function () {
-            if (selectedMarker) {
 
-                var tmp = [];
-                for (var i in markers) {
-                    if (markers[i] !== selectedMarker && typeof markers[i].action !== "undefined") {
-                        tmp.push(markers[i]);
-                    }
-                }
-                map.removeLayer(selectedMarker);
-                markers = tmp;
-                selectedMarker = null;
-
-                clearEditForm();
-                repaint();
-            }
-        });
-
-        $('#savePoint').on('click', function () {
-            if (selectedMarker) {
-                map.getLayers().forEach(function (t) {
-                    if (t === selectedMarker) {
-                        var geometry = t.getSource().getFeatures()[0].getGeometry();
-                        geometry.setCoordinates(ol.proj.fromLonLat([parseFloat($('#pointLon').val()), parseFloat($('#pointLat').val())]));
-                        t.alt = $('#pointAlt').val();
-                        t.action = $('#pointType').val();
-                        t.speedValue = $('#pointSpeed').val();
-                    }
-                });
-
-                selectedMarker.getSource().getFeatures()[0].setStyle(getPointIcon());
-                selectedMarker = null;
-                clearEditForm();
-                repaint();
-            }
-        });
-
-        $('#loadFileMissionButton').on('click', function () {
-            if (markers.length && !confirm(chrome.i18n.getMessage('confirm_delete_all_points'))) return;
-            removeAllPoints();
-            var dialog = require('nw-dialog');
-            dialog.setContext(document);
-            dialog.openFileDialog(function(result) {
-                loadMissionFile(result);
-            })
-        });
-
-        $('#saveFileMissionButton').on('click', function () {
-            //if (!markers.length) return;
-            var dialog = require('nw-dialog');
-            dialog.setContext(document);
-            dialog.saveFileDialog('', '.mission', function(result) {
-                saveMissionFile(result);
-            })
-        });
-
-        $('#loadMissionButton').on('click', function () {
-            if (markers.length && !confirm(chrome.i18n.getMessage('confirm_delete_all_points'))) return;
-            removeAllPoints();
-            $(this).addClass('disabled');
-            GUI.log('Start get point');
-
-            pointForSend = 0;
-            getNextPoint();
-        });
-
-        $('#saveMissionButton').on('click', function () {
-            $(this).addClass('disabled');
-            GUI.log('Start send point');
-
-            pointForSend = 0;
-            sendNextPoint();
-        });
-
-        $('#loadEepromMissionButton').on('click', function () {
-            if (markers.length && !confirm(chrome.i18n.getMessage('confirm_delete_all_points'))) return;
-            removeAllPoints();
-            GUI.log(chrome.i18n.getMessage('eeprom_load_ok'));
-
-            MSP.send_message(MSPCodes.MSP_WP_MISSION_LOAD, [0], getPointsFromEprom);
-        });
-        $('#saveEepromMissionButton').on('click', function () {
-            GUI.log(chrome.i18n.getMessage('eeprom_saved_ok'));
-            MSP.send_message(MSPCodes.MSP_WP_MISSION_SAVE, [0], false);
-        });
-
-        $('#rthEndMission').on('change', function () {
-            if ($(this).is(':checked')) {
-                $('#rthSettings').fadeIn(300);
-            } else {
-                $('#rthSettings').fadeOut(300);
-            }
-        });
-
-        $('#saveSettings').on('click', function () {
-            settings = { speed: $('#MPdefaultPointSpeed').val(), alt: $('#MPdefaultPointAlt').val() };
-            saveSettings();
-            closeSettingsPanel();
-        });
-
-        $('#cancelSettings').on('click', function () {
-            loadSettings();
-            closeSettingsPanel();
-        });
-
-        updateTotalInfo();
+    function openSettingsPanel() {
+        $('#missionPlanerSettings').fadeIn(200);
+        $('#missionPlanerTotalInfo, #MPeditPoint').hide();
     }
 
     function closeSettingsPanel() {
         $('#missionPlanerSettings').hide();
-        $('#missionPalnerTotalInfo').fadeIn(300);
-        if (selectedMarker !== null) {
-            $('#MPeditPoint').fadeIn(300);
+        $('#missionPlanerTotalInfo').fadeIn(200);
+        if (selectedPoint !== null) {
+            $('#MPeditPoint').fadeIn(200);
         }
-    }
-
-    function removeAllPoints() {
-        for (var i in markers) {
-            map.removeLayer(markers[i]);
-        }
-        markers = [];
-        clearEditForm();
-        updateTotalInfo();
-        $('#rthEndMission').prop('checked', false);
-        $('#rthSettings').fadeOut(300);
-        $('#rthLanding').prop('checked', false);
-        repaint();
     }
 
     function loadMissionFile(filename) {
@@ -707,32 +1020,22 @@ TABS.mission_control.initialize = function (callback) {
                 // draw actual mission
                 removeAllPoints();
                 for (var i = 0; i < mission.points.length; i++) {
-                    //if ([MWNP.WPTYPE.WAYPOINT,MWNP.WPTYPE.PH_UNLIM,MWNP.WPTYPE.PH_TIME,MWNP.WPTYPE.LAND].includes(mission.points[i].action)) {
-                    if (mission.points[i].action == MWNP.WPTYPE.WAYPOINT) {
-                        var coord = ol.proj.fromLonLat([mission.points[i].lon, mission.points[i].lat]);
-                        map.addLayer(addMarker(coord, mission.points[i].alt, mission.points[i].action, mission.points[i].p1));
+                    if (MWNP.supportedWPTypes.includes(mission.points[i].action)) {
+                        addPoint(mission.points[i]);
                         if (i == 0) {
+                            var coord = ol.proj.fromLonLat([mission.points[i].lon, mission.points[i].lat]);
                             map.getView().setCenter(coord);
                             map.getView().setZoom(16);
                         }
-                    } else if (mission.points[i].action == MWNP.WPTYPE.RTH) {
-                        $('#rthEndMission').prop('checked', true);
-                        $('#rthSettings').fadeIn(300);
-                        if (mission.points[i].p1 > 0) {
-                            $('#rthLanding').prop('checked', true);
-                        }
                     }
                 }
-
                 if (mission.center) {
                     var coord = ol.proj.fromLonLat([mission.center.lon, mission.center.lat]);
                     map.getView().setCenter(coord);
                     if (mission.center.zoom) map.getView().setZoom(mission.center.zoom);
                 }
-
-                repaint();
                 updateTotalInfo();
-
+                drawMarkers();
             });
 
         });
@@ -742,32 +1045,28 @@ TABS.mission_control.initialize = function (callback) {
         const fs = require('fs-extra');
         const xml2js = require('xml2js');
 
-        var center = ol.proj.toLonLat(map.getView().getCenter());
+        var center = roundPoint(ol.proj.toLonLat(map.getView().getCenter()));
         var zoom = map.getView().getZoom();
 
         var data = {
             'version': { $: { 'value': '2.3-pre8' } },
-            'mwp': { $: { 'cx': (Math.round(center[0] * 10000000) / 10000000), 'cy': (Math.round(center[1] * 10000000) / 10000000), 'zoom': zoom } },
+            'mwp': { $: { 'cx': center[0], 'cy': center[1], 'zoom': zoom } },
             'missionitem': []
         };
 
-        for (var i = 0; i < markers.length; i++) {
-            var geometry = markers[i].getSource().getFeatures()[0].getGeometry();
-            var coordinate = ol.proj.toLonLat(geometry.getCoordinates());
+        for (var i = 0; i < points.length; i++) {
+            var actionName = null; $.each(MWNP.WPTYPE, function(name, value) { if (points[i].action == value) actionName = name; });
             var point = { $: {
                 'no': (i + 1),
-                'action': ((markers[i].action == MWNP.WPTYPE.WAYPOINT) ? 'WAYPOINT' : markers[i].action),
-                'lon': (Math.round(coordinate[0] * 10000000) / 10000000),
-                'lat': (Math.round(coordinate[1] * 10000000) / 10000000),
-                'alt': (markers[i].alt / 100)
+                'action': actionName,
+                'lon': (points[i].lon ? roundPoint(points[i].lon) : 0),
+                'lat': (points[i].lat ? roundPoint(points[i].lat) : 0),
+                'alt': (points[i].alt ? (points[i].alt / 100) : 0),
+                'parameter1': (points[i].p1 ? parseInt(points[i].p1) : 0),
+                'parameter2': (points[i].p2 ? parseInt(points[i].p2) : 0),
+                'parameter3': (points[i].p3 ? parseInt(points[i].p3) : 0)
             } };
-            if ((markers[i].action == MWNP.WPTYPE.WAYPOINT) && (markers[i].speedValue > 0)) point.$['parameter1'] = markers[i].speedValue;
             data.missionitem.push(point);
-        }
-
-        // add last RTH point
-        if ($('#rthEndMission').is(':checked')) {
-            data.missionitem.push({ $: { 'no': (markers.length + 1), 'action': 'RTH', 'lon': 0, 'lat': 0, 'alt': (settings.alt / 100), 'parameter1': ($('#rthLanding').is(':checked') ? 1 : 0) } });
         }
 
         var builder = new xml2js.Builder({ 'rootName': 'mission', 'renderOpts': { 'pretty': true, 'indent': '\t', 'newline': '\n' } });
@@ -781,18 +1080,207 @@ TABS.mission_control.initialize = function (callback) {
         });
     }
 
+
+    function removeAllPoints() {
+        points = [];
+        updateTotalInfo();
+        unselectPoint();
+        closePointEditForm();
+        clearPointsGrid();
+        drawMarkers();
+    }
+
+    function removePoint(point) {
+        for (var i = 0; i < points.length; i++) {
+            if (points[i] == point) {
+                points.splice(i, 1);
+                break;
+            }
+        }
+        normalizePointList();
+        refreshPointsGrid();
+        updateTotalInfo();
+        unselectPoint();
+        closePointEditForm();
+        drawMarkers();
+    }
+
+    function roundPoint(point) {
+        if (point && (typeof(point) == "object")) {
+            if (point && $.isArray(point) && (point.length > 1) && point[0] && point[1]) {
+                point[0] = (Math.round(point[0] * 10000000) / 10000000); point[1] = (Math.round(point[1] * 10000000) / 10000000);
+            } else if (point && point.lon && point.lat) {
+                point.lon = (Math.round(point.lon * 10000000) / 10000000); point.lat = (Math.round(point.lat * 10000000) / 10000000);
+            }
+        } else if (point && (typeof(point) == "number")) {
+            point = (Math.round(point * 10000000) / 10000000);
+        }
+        return point;
+    }
+
+    function normalizePointList() {
+        for (var i = 0; i < points.length; i++) {
+            points[i].index = i + 1;
+            roundPoint(points[i]);
+        }
+    }
+
+
+    function attachMissionActionList(attach) {
+        $("#missionActionList").toggleClass("detached", !attach).toggleClass("attached", !!attach);
+        $("#missionActionList .gui_box_titlebar").toggleClass("detached", !attach).toggleClass("attached", !!attach);
+        $("#missionActionListPlaceholder").toggleClass("detached", !attach).toggleClass("attached", !!attach);
+        $("#missionActionList .buttonDetach span.ui-icon").toggleClass("ui-icon-pin-w", !attach).toggleClass("ui-icon-pin-s", !!attach);
+        if (attach) {
+            $("#missionActionList").css("position", "static");
+            $("#missionActionList").appendTo("#missionActionListPlaceholder");
+        } else {
+            $("#missionActionList").appendTo("#main-wrapper");
+            //$("#missionActionList").offset($("#missionActionListPlaceholder").offset());
+            $("#missionActionList").offset({ top: (($(window).height() - $("#missionActionList").height()) / 2), left: (($(window).width() - $("#missionActionList").width()) / 2) });
+
+            $("#missionActionList.detached").draggable({
+                handle: ".gui_box_titlebar.detached",
+                start: function(event, ui) {
+                    attachMissionActionList(false);
+                }
+            });
+        }
+    }
+
+    function toggleMissionActionListAttached() {
+        let attached = $("#missionActionList").hasClass("attached");
+        attachMissionActionList(!attached);
+    }
+
+    function collapseMissionActionList(collapse) {
+        $("#missionActionList .buttonCollapse span.ui-icon").toggleClass("ui-icon-caret-1-s", collapse).toggleClass("ui-icon-caret-1-n", !collapse);
+        $("#missionActionList").toggleClass("collapsed", collapse);
+    }
+
+    function toggleMissionActionListCollapsed() {
+        let collapsed = $("#missionActionList").hasClass("collapsed");
+        collapseMissionActionList(!collapsed);
+    }
+
+    function clonePoint(src, dst) {
+        dst = dst || {};
+        for (var n in src) {
+            if (["action", "lat", "lon", "alt", "p1", "p2", "p3"].includes(n)) dst[n] = src[n];
+        }
+        return dst;
+    }
+
+    /* * /
+    function pointFactory() {
+        return {
+            index: null,
+            action: 1,
+            lat: 0,
+            lon: 0,
+            alt: 0,
+            p1: null,
+            p2: null,
+            p3: null
+        };
+    }
+
+    function getNewPoint() {
+        var point = pointFactory();
+        point.action = 1;
+        point.lat = roundPoint(41.123456 + 0.01 - (Math.random() * 2 * 0.01));
+        point.lon = roundPoint(12.123456 + 0.01 - (Math.random() * 2 * 0.01));
+        point.alt = Math.round(Math.random() * 15000);
+        point.p1 = null;
+        point.p2 = null;
+        point.p3 = null;
+point.p3 = points.length + 1;
+        return point;
+    }
+
+    function addPointToList(point) {
+        if (!point) point = getNewPoint();
+        points.push(point);
+        normalizePointList();
+        fb(point);
+        return point;
+    }
+    /* */
+
+    function addPointsGridRow(point, container) {
+        if (!point) return null;
+        var param = $("tr.rowPointTemplate").clone().removeClass("rowPointTemplate").addClass("rowPoint").appendTo(container);
+        if (point.backup_) param.addClass("modified");
+        $("td[pointValue='index']", param).append(point.index ? point.index : "?");
+        var actionName = "?";
+        $.each(MWNP.WPTYPE, function(name, wpType) {
+            if (point.action == wpType) actionName = name;
+        });
+        $("td[pointValue='action']", param).text(actionName);
+        $("td[pointValue='lon']", param).text(point.lon ? roundPoint(point.lon) : "-");
+        $("td[pointValue='lat']", param).text(point.lat ? roundPoint(point.lat) : "-");
+        $("td[pointValue='alt']", param).text(point.alt ? (Math.round(point.alt * .1) / 10) : "-");
+
+        let argsPoint = getArgumentsFromAction(point.action);
+        $.each(argsPoint, function(i, argType) {
+            if ((argType.argtype == MWNP.ARGTYPE.P1) || (argType.argtype == MWNP.ARGTYPE.P2) || (argType.argtype == MWNP.ARGTYPE.P3)) {
+                var value = (((typeof(point[argType.params.obj]) != "undefined") && (point[argType.params.obj] != null)) ? point[argType.params.obj] : "-");
+                //if (argType.params.type == "checkbox") value = (value ? "Y" : "N");
+                $(("td[pointValue='" + argType.params.obj + "']"), param).text(value);
+            }
+        });
+
+        return param.data("point", point).show();
+    }
+
+    function clearPointsGrid() {
+        $("tr.rowPoint", $gridPoints).remove();
+    }
+
+    function refreshPointsGrid() {
+        clearPointsGrid();
+        for (var i = 0; i < points.length; i++) {
+            addPointsGridRow(points[i], $gridPoints);
+        }
+        if (selectedPoint) {
+            selectPointGrid(selectedPoint);
+        }
+    }
+
+    function selectPointGrid(point) {
+        unselectPointGrid();
+        if (!point) return;
+        $("#missionActionList tr.rowPoint").each(function(i, t) {
+            if ($(t).data("point") === point) {
+                $(t).addClass("selected");
+            }
+        });
+    }
+
+    function unselectPointGrid() {
+        $("#missionActionList tr.rowPoint").removeClass("selected");
+    }
+
+    function updatePointListFromGrid() {
+        points = [];
+        $("#missionActionList tr.rowPoint").each(function(i, t) {
+            points.push($(t).data("point"));
+        });
+        normalizePointList();
+        refreshPointsGrid();
+        updateTotalInfo();
+        unselectPoint();
+        closePointEditForm();
+        drawMarkers();
+    }
+
+
     function getPointsFromEprom() {
         pointForSend = 0;
         MSP.send_message(MSPCodes.MSP_WP_GETINFO, false, false, getNextPoint);
     }
 
-    function endGetPoint() {
-        GUI.log('End get point');
-        $('#loadMissionButton').removeClass('disabled');
-        repaint();
-        updateTotalInfo();
-    }
-
+// TODO check
     function getNextPoint() {
         if (MISSION_PLANER.countBusyPoints == 0) {
             endGetPoint();
@@ -800,22 +1288,20 @@ TABS.mission_control.initialize = function (callback) {
         }
 
         if (pointForSend > 0) {
-            // console.log(MISSION_PLANER.bufferPoint.lon);
-            // console.log(MISSION_PLANER.bufferPoint.lat);
-            // console.log(MISSION_PLANER.bufferPoint.alt);
-            // console.log(MISSION_PLANER.bufferPoint.action);
-            if (MISSION_PLANER.bufferPoint.action == 4) {
-                $('#rthEndMission').prop('checked', true);
-                $('#rthSettings').fadeIn(300);
-                if (MISSION_PLANER.bufferPoint.p1 > 0) {
-                    $('#rthLanding').prop('checked', true);
-                }
-            } else {
+            var point = {
+                action: MISSION_PLANER.bufferPoint.action,
+                lon: MISSION_PLANER.bufferPoint.lon,
+                lat: MISSION_PLANER.bufferPoint.lat,
+                alt: MISSION_PLANER.bufferPoint.alt,
+                p1: MISSION_PLANER.bufferPoint.p1,
+                p2: MISSION_PLANER.bufferPoint.p2,
+                p3: MISSION_PLANER.bufferPoint.p3
+            };
+            console.log(point);
+            addPoint(point);
+            if (pointForSend === 1) {
                 var coord = ol.proj.fromLonLat([MISSION_PLANER.bufferPoint.lon, MISSION_PLANER.bufferPoint.lat]);
-                map.addLayer(addMarker(coord, MISSION_PLANER.bufferPoint.alt, MISSION_PLANER.bufferPoint.action, MISSION_PLANER.bufferPoint.p1));
-                if (pointForSend === 1) {
-                    map.getView().setCenter(coord);
-                }
+                map.getView().setCenter(coord);
             }
         }
 
@@ -825,49 +1311,39 @@ TABS.mission_control.initialize = function (callback) {
         }
 
         MISSION_PLANER.bufferPoint.number = pointForSend;
-
         pointForSend++;
 
         MSP.send_message(MSPCodes.MSP_WP, mspHelper.crunch(MSPCodes.MSP_WP), false, getNextPoint);
     }
 
+    function endGetPoint() {
+        GUI.log('End get point');
+        $('#loadMissionButton').removeClass('disabled');
+        updateTotalInfo();
+        drawMarkers();
+    }
+
+
     function sendNextPoint() {
-        var isRTH = $('#rthEndMission').is(':checked');
-
-        if (pointForSend >= markers.length) {
-            if (isRTH) {
-                MISSION_PLANER.bufferPoint.number = pointForSend + 1;
-                MISSION_PLANER.bufferPoint.action = 4;
-                MISSION_PLANER.bufferPoint.lon = 0;
-                MISSION_PLANER.bufferPoint.lat = 0;
-                MISSION_PLANER.bufferPoint.alt = 0;
-                MISSION_PLANER.bufferPoint.endMission = 0xA5;
-                MISSION_PLANER.bufferPoint.p1 = $('#rthLanding').is(':checked') ? 1 : 0;
-                MSP.send_message(MSPCodes.MSP_SET_WP, mspHelper.crunch(MSPCodes.MSP_SET_WP), false, endSendPoint);
-            } else {
-                endSendPoint();
-            }
-
-            return;
-        }
-
-        var geometry = markers[pointForSend].getSource().getFeatures()[0].getGeometry();
-        var coordinate = ol.proj.toLonLat(geometry.getCoordinates());
+        GUI.log('Sending point ' + (pointForSend + 1) + ' / ' + points.length);
 
         MISSION_PLANER.bufferPoint.number = pointForSend + 1;
-        MISSION_PLANER.bufferPoint.action = markers[pointForSend].action;
-        MISSION_PLANER.bufferPoint.lon = parseInt(coordinate[0] * 10000000);
-        MISSION_PLANER.bufferPoint.lat = parseInt(coordinate[1] * 10000000);
-        MISSION_PLANER.bufferPoint.alt = markers[pointForSend].alt;
-        MISSION_PLANER.bufferPoint.p1 = markers[pointForSend].speedValue;
+        MISSION_PLANER.bufferPoint.action = points[pointForSend].action;
+        MISSION_PLANER.bufferPoint.lon = points[pointForSend].lon;
+        MISSION_PLANER.bufferPoint.lat = points[pointForSend].lat;
+        MISSION_PLANER.bufferPoint.alt = points[pointForSend].alt;
+        MISSION_PLANER.bufferPoint.p1 = points[pointForSend].p1;
+        MISSION_PLANER.bufferPoint.p2 = points[pointForSend].p2;
+        MISSION_PLANER.bufferPoint.p3 = points[pointForSend].p3;
+
         pointForSend++;
-        if (pointForSend >= markers.length && !isRTH) {
+        if (pointForSend >= points.length) {
             MISSION_PLANER.bufferPoint.endMission = 0xA5;
+            MSP.send_message(MSPCodes.MSP_SET_WP, mspHelper.crunch(MSPCodes.MSP_SET_WP), false, endSendPoint);
         } else {
             MISSION_PLANER.bufferPoint.endMission = 0;
+            MSP.send_message(MSPCodes.MSP_SET_WP, mspHelper.crunch(MSPCodes.MSP_SET_WP), false, sendNextPoint);
         }
-
-        MSP.send_message(MSPCodes.MSP_SET_WP, mspHelper.crunch(MSPCodes.MSP_SET_WP), false, sendNextPoint);
     }
 
     function endSendPoint() {
@@ -877,8 +1353,92 @@ TABS.mission_control.initialize = function (callback) {
 
         $('#saveMissionButton').removeClass('disabled');
     }
+
 };
 
 TABS.mission_control.cleanup = function (callback) {
     if (callback) callback();
 };
+
+
+
+// MultiWii NAV Protocol
+
+var MWNP = MWNP || {};
+
+// WayPoint type
+MWNP.WPTYPE = {
+    WAYPOINT:     1,
+    PH_UNLIM:     2,
+    PH_TIME:      3,
+    RTH:          4,
+    SET_POI:      5,
+    JUMP:         6,
+    SET_HEAD:     7,
+    LAND:         8
+};
+
+// Argument type
+MWNP.ARGTYPE = {
+    LAT:  1,
+    LON:  2,
+    ALT:  3,
+    P1:   4,
+    P2:   5,
+    P3:   6
+};
+
+MWNP.supportedWPTypes = [ MWNP.WPTYPE.WAYPOINT, MWNP.WPTYPE.PH_UNLIM, MWNP.WPTYPE.PH_TIME, MWNP.WPTYPE.RTH, MWNP.WPTYPE.SET_POI, MWNP.WPTYPE.LAND ];
+//MWNP.supportedWPTypes = [ MWNP.WPTYPE.WAYPOINT, MWNP.WPTYPE.RTH ];
+MWNP.defaultPointArgLat = { type: "text", label: "Lat", value: "0.0", obj: 'lat', convert: function(value) { return (Number(value) || 0); } };
+MWNP.defaultPointArgLon = { type: "text", label: "Lon", value: "0.0", obj: 'lon', convert: function(value) { return (Number(value) || 0); } };
+MWNP.defaultPointArgAlt = { type: "number", label: "Alt", unit: "cm", obj: 'alt' };
+
+// "WP type has argument" configuration table
+MWNP.WP_ARG_MAP = [
+    {
+        wptype: MWNP.WPTYPE.WAYPOINT,
+        args: [
+            { argtype: MWNP.ARGTYPE.LAT, params: MWNP.defaultPointArgLat }, { argtype: MWNP.ARGTYPE.LON, params: MWNP.defaultPointArgLon }, { argtype: MWNP.ARGTYPE.ALT, params: MWNP.defaultPointArgAlt },
+            { argtype: MWNP.ARGTYPE.P1, params: { type: "number", label: "Speed", unit: "cm/s", min: 0, obj: 'p1' } }
+        ]
+    }, {
+        wptype: MWNP.WPTYPE.PH_UNLIM,
+        args: [
+            { argtype: MWNP.ARGTYPE.LAT, params: MWNP.defaultPointArgLat }, { argtype: MWNP.ARGTYPE.LON, params: MWNP.defaultPointArgLon }, { argtype: MWNP.ARGTYPE.ALT, params: MWNP.defaultPointArgAlt },
+        ]
+    }, {
+        wptype: MWNP.WPTYPE.PH_TIME,
+        args: [
+            { argtype: MWNP.ARGTYPE.LAT, params: MWNP.defaultPointArgLat }, { argtype: MWNP.ARGTYPE.LON, params: MWNP.defaultPointArgLon }, { argtype: MWNP.ARGTYPE.ALT, params: MWNP.defaultPointArgAlt },
+            { argtype: MWNP.ARGTYPE.P1, params: { type: "number", label: "Hold time", unit: "s", min: 0, value: 0, obj: 'p1' } },
+        ]
+    }, {
+        wptype: MWNP.WPTYPE.RTH,
+        args: [
+            { argtype: MWNP.ARGTYPE.ALT, params: MWNP.defaultPointArgAlt },
+            { argtype: MWNP.ARGTYPE.P1, params: { type: "checkbox", label: "Land", obj: 'p1', convert: function(value) { return (value ? 1 : 0); } } },
+        ]
+    }, {
+        wptype: MWNP.WPTYPE.SET_POI,
+        args: [
+            { argtype: MWNP.ARGTYPE.LAT, params: MWNP.defaultPointArgLat }, { argtype: MWNP.ARGTYPE.LON, params: MWNP.defaultPointArgLon },
+        ]
+    }, {
+        wptype: MWNP.WPTYPE.JUMP,
+        args: [
+            { argtype: MWNP.ARGTYPE.P1, params: { type: "number", label: "Waypoint #", min: 0, obj: 'p1' } },
+            { argtype: MWNP.ARGTYPE.P2, params: { type: "number", label: "Repeat", min: -1, value: 0, help: "-1 = forever", obj: 'p2' } },
+        ]
+    }, {
+        wptype: MWNP.WPTYPE.SET_HEAD,
+        args: [
+            { argtype: MWNP.ARGTYPE.P1, params: { type: "number", label: "Head", unit: "°", min: 0, max: 360, value: 0, obj: 'p1' } },
+        ]
+    }, {
+        wptype: MWNP.WPTYPE.LAND,
+        args: [
+            { argtype: MWNP.ARGTYPE.LAT, params: MWNP.defaultPointArgLat }, { argtype: MWNP.ARGTYPE.LON, params: MWNP.defaultPointArgLon }, { argtype: MWNP.ARGTYPE.ALT, params: MWNP.defaultPointArgAlt },
+        ]
+    }
+];

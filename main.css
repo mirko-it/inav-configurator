@@ -2083,3 +2083,84 @@ select {
 #modal-reconnect div {
     text-align: center;
 }
+
+
+
+
+/* Slim scrollbars */
+
+.slim-scrollbar ::-webkit-scrollbar {
+    width: 8px; height: 8px;
+}
+.slim-scrollbar ::-webkit-scrollbar-button {
+    height: 0px; width: 0px;
+}
+ 
+.slim-scrollbar ::-webkit-scrollbar-track {
+    -webkit-border-radius: 10px;
+    border-radius: 10px;
+    background-color: rgba(128, 128, 128, .0);
+    -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, .3);
+}
+ 
+.slim-scrollbar ::-webkit-scrollbar-thumb {
+    -webkit-border-radius: 4px;
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, .1);
+    -webkit-box-shadow: inset 0 0 4px rgba(0, 0, 0, .4);
+    min-width: 20px; min-height: 20px;
+    width: 5px; height: 5px;
+    /*background-clip: padding-box;*/
+    /*border: 6px solid transparent;*/
+}
+.slim-scrollbar ::-webkit-scrollbar-thumb:hover,
+.slim-scrollbar ::-webkit-scrollbar-thumb:active {
+    background-color: rgba(0, 0, 0, .2);
+}
+.slim-scrollbar ::-webkit-scrollbar-thumb:window-inactive {
+    background-color: rgba(0, 0, 0, .1);
+    -webkit-box-shadow: inset 0 0 4px rgba(0, 0, 0, .1);
+}
+
+
+
+
+/* Jquery UI */
+
+/* Icons
+----------------------------------*/
+
+/* states and images */
+.ui-icon {
+    width: 16px;
+    height: 16px;
+}
+.ui-icon,
+.ui-widget-content .ui-icon {
+    background-image: url("../images/ui-icons_444444_256x240.png");
+}
+.ui-widget-header .ui-icon {
+    background-image: url("../images/ui-icons_444444_256x240.png");
+}
+.ui-button .ui-icon {
+    background-image: url("../images/ui-icons_777777_256x240.png");
+}
+.ui-state-hover .ui-icon,
+.ui-state-focus .ui-icon,
+.ui-button:hover .ui-icon,
+.ui-button:focus .ui-icon,
+.ui-state-default .ui-icon {
+    background-image: url("../images/ui-icons_555555_256x240.png");
+}
+.ui-state-active .ui-icon,
+.ui-button:active .ui-icon {
+    background-image: url("../images/ui-icons_ffffff_256x240.png");
+}
+.ui-state-highlight .ui-icon,
+.ui-button .ui-state-highlight.ui-icon {
+    background-image: url("../images/ui-icons_777620_256x240.png");
+}
+.ui-state-error .ui-icon,
+.ui-state-error-text .ui-icon {
+    background-image: url("../images/ui-icons_cc0000_256x240.png");
+}

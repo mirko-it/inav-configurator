@@ -2740,8 +2740,14 @@
     "editPointButtonSave": {
         "message": "Save"
     },
+    "editPointButtonRestore": {
+        "message": "Restore"
+    },
     "editPointButtonRemove": {
         "message": "Remove"
+    },
+    "missionActionListHead": {
+        "message": "Action list"
     },
     "removeAllPointButtonSave": {
         "message": "Remove all points"

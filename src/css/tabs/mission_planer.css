@@ -43,6 +43,10 @@
     opacity: 0.5;
 }
 
+.tab-mission-control #MPeditPoint .btn a {
+    width: 94px;
+}
+
 .tab-mission-control .btn-danger a {
     background-color: #db250e;
     border: 1px solid #b5480e;
@@ -66,10 +70,12 @@
 
 .tab-mission-control .content_wrapper {
     display: flex;
-    height: 90%;
+    /*height: 90%;*/
+    height: calc(100% - 80px);
     flex-direction: row;
     justify-content: space-between;
     flex-wrap: wrap;
+    padding: 10px;
     padding-bottom: 5px;
     padding-top: 5px;
 }
@@ -78,12 +84,8 @@
     height: 100%;
 }
 
-#missionMap {
-    height: 100%;
-}
-
 .tab-mission-control input {
-    width: 115px;
+    width: 125px;
     padding-left: 3px;
     height: 20px;
     line-height: 20px;
@@ -95,7 +97,7 @@
 }
 
 .tab-mission-control select {
-    width: 118px;
+    width: 128px;
     padding-left: 3px;
     height: 20px;
     line-height: 20px;
@@ -112,7 +114,7 @@
     margin-left: 5px;
 }
 .tab-mission-control .point-label {
-    width: 60px;
+    width: 72px;
     display: inline-block;
 }
 
@@ -123,3 +125,159 @@
 .ol-touch .mission-control-settings {
     top: 80px;
 }
+
+
+
+
+.tab-mission-control .content_wrapper .cf_column.fourth {
+    overflow-x: auto;
+    overflow-y: auto;
+    height: 100%;
+}
+
+.tab-mission-control .content_wrapper .cf_column.threefourth_left {
+    height: 100%;
+}
+
+
+#MPeditPoint {
+    white-space: nowrap;
+}
+
+#MPeditPoint .buttonCloseBox {
+    position: relative;
+    top: 3px;
+    right: 3px;
+    float: right;
+    cursor: pointer;
+}
+
+
+#missionMap {
+    height: 100%;
+}
+
+
+#missionActionListPlaceholder {
+    text-align: center;
+    border: 1px dashed #ccc;
+}
+#missionActionListPlaceholder.attached {
+    border: none;
+}
+#missionActionListPlaceholder.detached {
+    min-height: 50px;
+}
+#missionActionListPlaceholder .detached-info {
+    color: gray;
+    text-align: center;
+    display: block;
+}
+#missionActionListPlaceholder.attached .detached-info {
+    display: none;
+}
+
+
+#missionActionList {
+    width: inherit;
+    white-space: nowrap;
+    font-size: xx-small;
+}
+#missionActionList.attached {
+    display: block;
+    margin-bottom: 0px;
+    /*background-color: #faa;*/
+}
+#missionActionList.detached {
+    display: grid;
+    min-width: 400px;
+}
+
+#missionActionList .gui_box_titlebar {
+    border-bottom: 1px solid lightgray;
+    margin-bottom: 0px;
+}
+#missionActionList.detached .gui_box_titlebar {
+    cursor: move;
+}
+#missionActionList .buttonCollapse {
+    position: relative;
+    top: 3px;
+    float: left;
+    cursor: pointer;
+}
+#missionActionList .buttonDetach {
+    position: relative;
+    top: 3px;
+    right: 3px;
+    float: right;
+    cursor: pointer;
+}
+
+#missionActionList .list-container {
+    display: block;
+    width: 100%;
+    min-height: 100px;
+    max-height: 500px;
+    overflow-x: auto;
+    overflow-y: auto;
+}
+#missionActionList.collapsed .list-container {
+    display: none;
+}
+#missionActionList.collapsed .header {
+    border-bottom: none;
+}
+
+#missionActionList .list-container table {
+    border-collapse: collapse;
+}
+#missionActionList .list-container tr.rowPoint {
+    cursor: pointer;
+}
+#missionActionList .list-container tr.rowPoint.modified {
+    color: #f00;
+    font-weight: bold;
+}
+#missionActionList .list-container th {
+    color: gray;
+}
+#missionActionList .list-container table {
+}
+#missionActionList .list-container tr:nth-child(even) {
+    background: #eee;
+}
+#missionActionList .list-container tr {
+    border-bottom: 1px solid #ddd;
+}
+#missionActionList .list-container tr.selected {
+    background: #aaa;
+}
+#missionActionList .list-container tr td:not(:last-child),
+#missionActionList .list-container tr th:not(:last-child) {
+    /*border-right: 1px solid #ddd;*/
+}
+#missionActionList .list-container td,
+#missionActionList .list-container th {
+    padding: 2px;
+}
+#missionActionList .list-container td:first-child {
+    padding-left: 0px;
+    cursor: ns-resize;
+}
+#missionActionList .list-container .cellType {
+    width: 100%;
+}
+
+
+#missionActionList .border {
+    border: 1px solid lightgray;
+}
+
+
+
+/*
+#missionMap {
+    opacity: .5;
+}
+*/
