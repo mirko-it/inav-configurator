@@ -34,23 +34,18 @@
     margin-top: 30%;
 }
 
-/* .tab-gps #loadmap {
-    margin-top: 0;
-    display: none;
-} */
-
 .tab-gps #connect a {
     font-weight: bold;
     margin-top: 10px;
 }
 
-.tab-gps #loadmap {
-    height: 100%;
+.tab-gps #gps-map {
+    max-height: 500px;
     width: 100%;
     float: left;
 }
 
-.tab-gps #loadmap .controls {
+.tab-gps #gps-map .controls {
     width: 100%;
     float: left;
     height: 33px;
@@ -59,7 +54,7 @@
     background-color: #D1D1D1;
 }
 
-.tab-gps #loadmap .controls a {
+.tab-gps #gps-map .controls a {
     background-color: white;
     border-radius: 4px;
     border: 1px silver solid;
@@ -74,32 +69,113 @@
     float: right;
 }
 
-.tab-gps #loadmap .controls a:hover {
+.tab-gps #gps-map .controls a:hover {
     background-color: #f5f5f5;
 }
 
-.tab-gps #loadmap .controls a:active {
+.tab-gps #gps-map .controls a:active {
     background-color: #e6e6e6;
 }
 
-.tab-gps #loadmap .controls a:first-child {
+.tab-gps #gps-map .controls a:first-child {
     margin-left: -1px;
     margin-right: 5px;
     border-bottom-left-radius: 0;
     border-top-left-radius: 0;
 }
 
-.tab-gps #loadmap .controls a:last-child {
+.tab-gps #gps-map .controls a:last-child {
     margin-right: 0;
     border-bottom-right-radius: 0;
     border-top-right-radius: 0;
 }
 
-#gps-map {
-    height: 400px;
-    width: 100%;
-    float: left;
+
+
+.tab-gps .content_wrapper {
+    height: calc(100% - 20px);
+    padding: 10px;
+    padding-bottom: 5px;
+    padding-top: 5px;
 }
+
+
+
+.tab-gps .gui_box_titlebar {
+    margin-bottom: 4px;
+}
+
+.tab-gps .gui_box.send-data-box {
+        min-width: 270px;
+}
+
+.tab-gps .cf_table {
+    margin-bottom: 0px;
+}
+
+.tab-gps .cf_table td {
+    white-space: nowrap;
+    padding-top: 2px;
+    padding-bottom: 2px;
+}
+
+
+.tab-gps .spacer_box div input,
+.tab-gps .spacer_box div select {
+    margin-right: 0px;
+}
+
+.tab-gps .cf_table td:last-child input,
+.tab-gps .cf_table td:last-child select {
+    float: right;
+}
+
+
+.tab-gps .GPS_send td:first-child {
+    width: 1px;
+}
+
+.tab-gps .GPS_send td:nth-child(2) {
+    text-align: right;
+}
+
+.tab-gps .GPS_send td:last-child {
+    width: 1px;
+}
+
+
+.tab-gps .GPS_send input {
+    padding-left: 3px;
+    height: 20px;
+    line-height: 20px;
+    text-align: left;
+    border: 1px solid silver;
+    border-radius: 3px;
+    margin-right: 11px;
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.tab-gps .GPS_send .number input {
+    width: 80px;
+}
+
+.tab-gps .GPS_send .select select {
+    width: 85px;
+}
+
+.tab-gps .GPS_send .string input {
+    width: 80px;
+}
+
+.tab-gps .GPS_send .disabled {
+    background-color: #ececec;
+}
+
+
+
+
+
 
 /*noinspection ALL*/
 progress[value]::-webkit-progress-bar {

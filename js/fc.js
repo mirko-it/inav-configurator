@@ -707,7 +707,8 @@ var FC = {
             'I2C-NAV',
             'DJI NAZA',
             'UBLOX7',
-            'MTK'
+            'MTK',
+            'MSP'
         ];
     },
     getGpsBaudRates: function () {
